@@ -64,8 +64,10 @@ class MolTensorizer(object):
     their range and convert molecules into tensors.
     """
 
-    def __init__(self, preprocess_fn=smiles_to_mol):
+    def __init__(self, preprocess_fn=smiles_to_mol,
+                 read_interpretation: bool = False):
         self.preprocess_fn = preprocess_fn
+        self.read_interpretation = read_interpretation
 
     def get_null_vectors(self) -> Tuple[np.ndarray, np.ndarray]:
         """Gets atom and bond featurized vectors for unspecified molecule."""
@@ -77,7 +79,10 @@ class MolTensorizer(object):
         return null_atomvec, null_bondvec
 
     def atom_features(self, atom):
-        return np.array(_onehot_encoding_unk(atom.GetSymbol(), ATOM_TYPES))
+        if self.read_interpretation:
+            return np.array([float(atom.GetProp('atomNote'))])
+        else:
+            return np.array(_onehot_encoding_unk(atom.GetSymbol(), ATOM_TYPES))
 
     def bond_features(self, bond):
         return np.array(_onehot_encoding_unk(
@@ -104,6 +109,8 @@ class MolTensorizer(object):
             'senders': np.array(senders, np.int32),
             'receivers': np.array(receivers, np.int32)
         }
+        if self.read_interpretation:
+            data_dict['edges'] = None
         return data_dict
 
     def transform_data_dict(self,
@@ -113,10 +120,20 @@ class MolTensorizer(object):
         data_dicts = list(map(self.mol_to_data_dict, mol_list))
         return data_dicts
 
+    def transform_data_dict_from_mols(self,
+                                      mols: List[Chem.Mol]) -> List[Dict[Text, np.ndarray]]:
+        return list(map(self.mol_to_data_dict, mols))
+
 
 def smiles_to_graphs_tuple(
         smiles_list: List[Text],
         tensorizer: MolTensorizer) -> GraphsTuple:
     """Converts smiles to graphs tuple."""
     graph_list = tensorizer.transform_data_dict(smiles_list)
+    return graph_nets.utils_tf.data_dicts_to_graphs_tuple(graph_list)
+
+
+def mol_to_graphs_tuple(mols: List[Chem.Mol],
+                        tensorizer: MolTensorizer) -> GraphsTuple:
+    graph_list = tensorizer.transform_data_dict_from_mols(mols)
     return graph_nets.utils_tf.data_dicts_to_graphs_tuple(graph_list)
