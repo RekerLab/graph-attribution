@@ -20,3 +20,7 @@ dependencies:
         - tensorflow
         - git+https://github.com/deepmind/sonnet.git
         - graph_nets
+        - typed-argument-parser
+        - git+https://github.com/bp-kelley/descriptastorus
+        - git+https://gitlab.com/Xiangyan93/graphdot.git@feature/xy
+        - mgktools==0.0.4
