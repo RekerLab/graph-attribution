@@ -27,8 +27,6 @@ print('dataset label count:')
 print(df.label.value_counts())
 df_train = df[df.splits == 'train']
 df_test = df[df.splits == 'test']
-print(df_train, df_test)
-exit()
 if os.path.exists('train.pkl'):
     train = Dataset.load(path='', filename='train.pkl')
 else:
