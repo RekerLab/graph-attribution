@@ -9,7 +9,13 @@ from rdkit import Chem
 from graph_attribution.featurization import mol_to_graphs_tuple, MolTensorizer
 import numpy as np
 import json
-from utils import calc_metric, norm
+from sklearn.metrics import roc_auc_score, accuracy_score, balanced_accuracy_score
+
+
+def norm(x):
+    if x.__class__ != np.array:
+        x = np.array(x)
+    return (x - np.min(x)) / (np.max(x) - np.min(x))
 
 
 class InputArgs(Tap):
@@ -83,7 +89,8 @@ for i in range(len(pred_atts)):
         y_pred += pred_atts[i].nodes.ravel().tolist()
 y_pred = norm(y_pred)
 metric = {
-    'auc': calc_metric(y_truth, y_pred, 'auc'),
-    'acc': calc_metric(y_truth, y_pred, 'acc')
+    'auc': roc_auc_score(y_truth, y_pred),
+    'acc': accuracy_score(y_truth, np.rint(y_pred)),
+    'balanced_acc': balanced_accuracy_score(y_truth, np.rint(y_pred))
 }
 open('%s/att-auc' % dir_, 'w').write(json.dumps(metric))
