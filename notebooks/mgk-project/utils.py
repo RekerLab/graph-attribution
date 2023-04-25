@@ -48,7 +48,7 @@ def get_data(task_name):
 
 
 def norm(x):
-    if x.__cl!= np.array:
+    if x.__class__ != np.array:
         x = np.array(x)
     return (x - np.min(x)) / (np.max(x) - np.min(x))
 

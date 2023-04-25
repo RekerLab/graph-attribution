@@ -6,11 +6,10 @@ import pandas as pd
 from mgktools.interpret.interpret import get_interpreted_mols
 from graph_attribution.datasets import save_graphtuples, load_graphstuples
 from rdkit import Chem
-from mgktools.data.data import Dataset
 from graph_attribution.featurization import mol_to_graphs_tuple, MolTensorizer
-from graph_attribution.tasks import BinaryClassificationTaskType
 import numpy as np
-from ..utils import calc_metric, norm
+import json
+from utils import calc_metric, norm
 
 
 class InputArgs(Tap):
@@ -53,7 +52,7 @@ else:
 pred_att_npz = '%s/mgk_attribution.npz' % dir_
 if not os.path.exists(pred_att_npz):
     smiles_train = df_train['smiles'].tolist()
-    targets_train = df_train['y'].tolist()
+    targets_train = df_train['label'].tolist()
     smiles_to_be_interpret = df_test['smiles'].tolist()
     assert len(smiles_to_be_interpret) != 0
     mols = get_interpreted_mols(smiles_train=smiles_train,
@@ -74,11 +73,11 @@ y_pred = []
 for i in range(len(pred_atts)):
     assert np.sum(abs(pred_atts[i].senders - att_test[i].senders)) == 0
     assert np.sum(abs(pred_atts[i].receivers - att_test[i].receivers)) == 0
-    y_truth += att_test[i].nodes.tolist()
-    y_pred += pred_atts[i].nodes.tolist()
-    # y_pred += norm(pred_atts[i].nodes).tolist()
-# y_pred = norm(y_pred)
-result = calc_metric(y_truth, y_pred, 'auc')
-print('AUC: %f' % calc_metric(y_truth, y_pred, 'auc'))
-print('ACC: %f' % calc_metric(y_truth, y_pred, 'acc'))
-open('%s/att-auc' % dir_, 'w').write(str(result))
+    y_truth += att_test[i].nodes.ravel().tolist()
+    y_pred += pred_atts[i].nodes.ravel().tolist()
+y_pred = norm(y_pred)
+metric = {
+    'auc': calc_metric(y_truth, y_pred, 'auc'),
+    'acc': calc_metric(y_truth, y_pred, 'acc')
+}
+open('%s/att-auc' % dir_, 'w').write(json.dumps(metric))
