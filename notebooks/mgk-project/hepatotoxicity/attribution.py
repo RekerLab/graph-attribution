@@ -73,11 +73,11 @@ y_pred = []
 for i in range(len(pred_atts)):
     assert np.sum(abs(pred_atts[i].senders - att_test[i].senders)) == 0
     assert np.sum(abs(pred_atts[i].receivers - att_test[i].receivers)) == 0
-    if att_test[i].nodes.__class__ != np.array:
+    if att_test[i].nodes.__class__ != np.ndarray:
         y_truth += att_test[i].nodes.numpy().ravel().tolist()
     else:
         y_truth += att_test[i].nodes.ravel().tolist()
-    if pred_atts[i].nodes.__class__ != np.array:
+    if pred_atts[i].nodes.__class__ != np.ndarray:
         y_pred += pred_atts[i].nodes.numpy().ravel().tolist()
     else:
         y_pred += pred_atts[i].nodes.ravel().tolist()
