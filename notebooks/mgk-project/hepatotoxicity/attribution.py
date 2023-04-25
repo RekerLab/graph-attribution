@@ -73,8 +73,14 @@ y_pred = []
 for i in range(len(pred_atts)):
     assert np.sum(abs(pred_atts[i].senders - att_test[i].senders)) == 0
     assert np.sum(abs(pred_atts[i].receivers - att_test[i].receivers)) == 0
-    y_truth += att_test[i].nodes.ravel().tolist()
-    y_pred += pred_atts[i].nodes.ravel().tolist()
+    if att_test[i].nodes.__class__ != np.array:
+        y_truth += att_test[i].nodes.numpy().ravel().tolist()
+    else:
+        y_truth += att_test[i].nodes.ravel().tolist()
+    if pred_atts[i].nodes.__class__ != np.array:
+        y_pred += pred_atts[i].nodes.numpy().ravel().tolist()
+    else:
+        y_pred += pred_atts[i].nodes.ravel().tolist()
 y_pred = norm(y_pred)
 metric = {
     'auc': calc_metric(y_truth, y_pred, 'auc'),
