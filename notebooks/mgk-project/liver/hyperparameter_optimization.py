@@ -1,8 +1,8 @@
 import sys
 sys.path.append('..')
 import os
+from utils import get_data
 from tap import Tap
-import pandas as pd
 from mgktools.data.data import Dataset
 from mgktools.hyperparameters import additive_pnorm
 from mgktools.kernels.utils import get_kernel_config
@@ -11,7 +11,7 @@ from mgktools.data.split import dataset_split
 
 
 class InputArgs(Tap):
-    data_path: str
+    task_name: str = 'logic7'
     alpha: float = 0.01
     loss: str = 'loocv'
     num_iters: int = 30
@@ -21,19 +21,14 @@ class InputArgs(Tap):
 
 args = InputArgs().parse_args()
 # dataset
-df = pd.read_csv(args.data_path)
-print('dataset label count:')
-print(df.label.value_counts())
-df_train = df[df.splits == 'train'].reset_index()
-df_test = df[df.splits == 'test'].reset_index()
-print(f'training ({len(df_train)}), test ({len(df_test)}).')
+df_train, df_test, att_test, task = get_data(args.task_name)
 if os.path.exists('train.pkl'):
     train = Dataset.load(path='', filename='train.pkl')
 else:
     train = Dataset.from_df(
         df_train,
         pure_columns=['smiles'],
-        target_columns=['label'],
+        target_columns=['y'],
         n_jobs=8
     )
     train.save(path='', filename='train.pkl')
@@ -44,12 +39,13 @@ else:
     test = Dataset.from_df(
         df_test,
         pure_columns=['smiles'],
-        target_columns=['label'],
+        target_columns=['y'],
         n_jobs=8
     )
     test.save(path='', filename='test.pkl')
 
 # hyperparameter optimization
+
 
 kernel_config = get_kernel_config(
     train,
@@ -87,7 +83,7 @@ elif args.loss == 'log_likelihood':
                               datasets=dataset_split(train, split_type='random', sizes=[1 / args.num_splits] * args.num_splits),
                               kernel_config=kernel_config,
                               model_type='gpr',
-                              task_type='binary',
+                              task_type='regression',
                               metric='log_likelihood',
                               num_iters=args.num_iters,
                               alpha=args.alpha,
