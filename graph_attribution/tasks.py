@@ -366,13 +366,14 @@ if HAS_RDKIT:
             _frag_rule('benzene', '[cX3]1[cX3H][cX3H][cX3H][cX3H][cX3H]1')
         ]))
     crippen_dataset = mol_tasks.CrippenLogPDataset()
-    liver_dataset = mol_tasks.LiverDataset()
 else:
     benzene_dataset = DummyDataset('benzene')
     logic7_dataset = DummyDataset('logic7')
     logic8_dataset = DummyDataset('logic8')
     logic10_dataset = DummyDataset('logic10')
     crippen_dataset = DummyDataset('crippen')
+liver_dataset = DummyDataset('liver')
+ames_dataset = DummyDataset('ames')
 
 
 class Task(enum.Enum):
@@ -386,11 +387,12 @@ class Task(enum.Enum):
     treegrid = 'treegrid'
     bacommunity = 'bacommunity'
     liver = 'liver'
+    ames = 'ames'
 
 
 NODE_TASKS = [Task.bashapes]
 GLOBALS_TASKS = [
-    Task.crippen, Task.benzene, Task.logic7, Task.logic8, Task.logic10, Task.liver
+    Task.crippen, Task.benzene, Task.logic7, Task.logic8, Task.logic10, Task.liver, Task.ames
 ]
 MOL_TASKS = [
     Task.crippen,
@@ -398,7 +400,8 @@ MOL_TASKS = [
     Task.logic7,
     Task.logic8,
     Task.logic10,
-    Task.liver
+    Task.liver,
+    Task.ames
 ]
 
 
@@ -423,6 +426,9 @@ def get_task(task: Union[Task, Text]) -> templates.AttributionTask:
                             TargetType.globals),
         Task.liver:
             AttributionTask(liver_dataset, LiverTaskType(),
+                            TargetType.globals),
+        Task.ames:
+            AttributionTask(ames_dataset, BinaryClassificationTaskType(),
                             TargetType.globals),
         Task.bashapes:
             AttributionTask(
