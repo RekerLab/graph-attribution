@@ -28,6 +28,8 @@ import tensorflow as tf
 from graph_attribution import attribution_metrics as att_metrics
 from graph_attribution import graphs as graph_utils
 from graph_attribution import templates
+from mgktools.evaluators.metric import eval_metric_func
+
 
 try:
     from rdkit import Chem
@@ -155,7 +157,8 @@ class LiverTaskType(AttributionTaskType):
         """Scores predictions and return a dict of (metric_name, value)."""
         values = [('R2', sklearn.metrics.r2_score(y_true, y_pred)),
                   ('RMSE', att_metrics.rmse(y_true, y_pred)),
-                  ('tau', att_metrics.kendall_tau_score(y_true, y_pred))]
+                  ('tau', att_metrics.kendall_tau_score(y_true, y_pred)),
+                  ('ACC',  eval_metric_func(y_true.ravel().tolist(), y_pred.ravel().tolist(), metric='accuracy'))]
         return collections.OrderedDict(values)
 
     def preprocess_attributions(self,
