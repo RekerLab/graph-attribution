@@ -70,7 +70,7 @@ if args.loss == 'loocv':
                               kernel_config=kernel_config,
                               model_type='gpr',
                               task_type='binary',
-                              metric='accuracy',
+                              metric='roc-auc',
                               split_type='loocv',
                               num_iters=args.num_iters,
                               alpha=args.alpha,
