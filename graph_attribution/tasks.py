@@ -428,7 +428,7 @@ def get_task(task: Union[Task, Text]) -> templates.AttributionTask:
             AttributionTask(logic10_dataset, BinaryClassificationTaskType(),
                             TargetType.globals),
         Task.liver:
-            AttributionTask(liver_dataset, LiverTaskType(),
+            AttributionTask(liver_dataset, BinaryClassificationTaskType(),
                             TargetType.globals),
         Task.ames:
             AttributionTask(ames_dataset, BinaryClassificationTaskType(),
