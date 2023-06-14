@@ -24,11 +24,13 @@ import more_itertools
 import numpy as np
 import sonnet as snt
 import tensorflow as tf
+from sklearn.metrics import roc_auc_score, accuracy_score, balanced_accuracy_score
 from graph_attribution import datasets
 from graph_attribution import graphnet_models as models
 from graph_attribution import graphnet_techniques as techniques
 from graph_attribution import graphs as graph_utils
 from graph_attribution import tasks, templates
+from graph_attribution.tasks import normalize_attributions
 
 # Typing alias.
 GraphsTuple = graph_nets.graphs.GraphsTuple
@@ -49,7 +51,7 @@ def set_seed(random_seed: int):
 def get_graph_block(block_type: models.BlockType, node_size: int,
                     edge_size: int, global_size: int, index: int) -> snt.Module:
     """Gets a GNN block based on enum and sizes."""
-    name = f'{block_type.name}_{index+1}'
+    name = f'{block_type.name}_{index + 1}'
     if block_type == models.BlockType.gcn:
         return models.GCNLayer(models.get_mlp_fn([node_size] * 2), name=name)
     elif block_type == models.BlockType.gat:
@@ -172,10 +174,10 @@ class GNN(snt.Module, templates.TransparentModel):
 
     @tf.function(experimental_relax_shapes=True)
     def get_intermediate_activations_gradients(
-        self,
-        x: GraphsTuple,
-        task_index: Optional[int] = None,
-        batch_index: Optional[int] = None
+            self,
+            x: GraphsTuple,
+            task_index: Optional[int] = None,
+            batch_index: Optional[int] = None
     ) -> Tuple[List[NodeEdgeTensors], List[NodeEdgeTensors], tf.Tensor]:
         """Gets intermediate layer activations and gradients."""
         task_index, batch_index = self.cast_task_batch_index(
@@ -210,15 +212,16 @@ class GNN(snt.Module, templates.TransparentModel):
         return weights
 
     @classmethod
-    def from_hparams(cls, hp, task:AttributionTask) -> 'GNN':
-      return cls(node_size = hp.node_size,
-               edge_size = hp.edge_size,
-               global_size = hp.global_size,
-               y_output_size = task.n_outputs,
-               block_type = models.BlockType(hp.block_type),
-               activation = task.get_nn_activation_fn(),
-               target_type = task.target_type,
-               n_layers = hp.n_layers)
+    def from_hparams(cls, hp, task: AttributionTask) -> 'GNN':
+        return cls(node_size=hp.node_size,
+                   edge_size=hp.edge_size,
+                   global_size=hp.global_size,
+                   y_output_size=task.n_outputs,
+                   block_type=models.BlockType(hp.block_type),
+                   activation=task.get_nn_activation_fn(),
+                   target_type=task.target_type,
+                   n_layers=hp.n_layers)
+
 
 def get_batched_attributions(method: AttributionTechnique,
                              model: TransparentModel,
@@ -259,6 +262,63 @@ def generate_result(model: templates.TransparentModel,
     return result
 
 
+def generate_result_new(model: templates.TransparentModel,
+                        method: templates.AttributionTechnique,
+                        task: templates.AttributionTask,
+                        inputs: GraphsTuple,
+                        y_true: np.ndarray,
+                        true_atts: List[GraphsTuple],
+                        pred_atts: Optional[List[GraphsTuple]] = None,
+                        reducer_fn: Optional[Callable[[np.ndarray],
+                                                      Any]] = np.nanmean,
+                        batch_size: int = 1000):
+    """For a given model, method and task, generate metrics."""
+    if pred_atts is None:
+        pred_atts = get_batched_attributions(method, model, inputs, batch_size)
+        pred_atts = task.task_type.preprocess_attributions(pred_atts)
+        pred_atts = normalize_attributions(pred_atts)
+
+    auc = []
+    acc = []
+    balanced_acc = []
+    for i, gt in enumerate(true_atts):
+        att_true = gt.nodes[:, -1]
+        att_pred = pred_atts[i].nodes
+        if len(set(att_true)) == 1:
+            continue
+        else:
+            assert len(set(att_true)) == 2
+            auc.append(roc_auc_score(att_true, att_pred))
+            acc.append(roc_auc_score(att_true, np.rint(att_pred)))
+            balanced_acc.append(roc_auc_score(att_true, np.rint(att_pred)))
+    result = {
+        'att auc (mol level)': np.mean(auc),
+        'att acc (mol level)': np.mean(acc),
+        'att balanced_acc (mol level)': np.mean(balanced_acc)
+    }
+    att_true = []
+    att_pred = []
+    for i, gt in enumerate(true_atts):
+        att_true += gt.nodes[:, -1].tolist()
+        att_pred += pred_atts[i].nodes.tolist()
+    result.update({
+        'att auc': roc_auc_score(att_true, att_pred),
+        'att acc': accuracy_score(att_true, np.rint(att_pred)),
+        'att balanced_acc': balanced_accuracy_score(att_true, np.rint(att_pred))
+    })
+    y_pred = model.predict(inputs).numpy().reshape(-1, 1)
+    if len(set(y_true.ravel().tolist())) == 2:
+        result['auc'] = roc_auc_score(y_true, y_pred)
+    result.update({
+        #'acc': accuracy_score(y_true, np.rint(y_pred)),
+        #'balanced_acc': balanced_accuracy_score(y_true, np.rint(y_pred))
+    })
+    # result['Task'] = task.name
+    # result['Technique'] = method.name
+    # result['Model'] = model.name
+    return result, pred_atts
+
+
 @dataclasses.dataclass(frozen=True)
 class ExperimentData:
     """Helper class to hold all data relating to an experiment."""
@@ -286,8 +346,8 @@ class ExperimentData:
 
 
 def get_experiment_setup(
-    task_type: Union[tasks.Task, Text], block_type: Union[models.BlockType,
-                                                          Text]
+        task_type: Union[tasks.Task, Text], block_type: Union[models.BlockType,
+                                                              Text]
 ) -> Tuple[ExperimentData, AttributionTask, MethodDict]:
     """Get experiment data based on task_name."""
     task_type = tasks.Task(task_type)

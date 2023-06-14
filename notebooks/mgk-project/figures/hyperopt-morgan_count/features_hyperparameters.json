@@ -1,0 +1,12 @@
+{
+ "features_kernel_type": "rbf",
+ "features_hyperparameters": [
+  9.99988460082304
+ ],
+ "features_hyperparameters_bounds": [
+  [
+   0.1,
+   10.0
+  ]
+ ]
+}

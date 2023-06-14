@@ -191,3 +191,20 @@ class FragmentLogicDataset(templates.AttributionDataset):
             att.append(_make_attribution_from_nodes(mol, nodes, global_vec))
 
         return att
+
+
+class LiverDataset:
+    def __init__(self):
+        self.data_path = 'data/liver/liver_smiles.csv'
+
+    @property
+    def name(self) -> Text:
+        return 'Liver'
+
+class AmesDataset:
+    def __init__(self):
+        self.data_path = 'data/ames/ames_smiles.csv'
+
+    @property
+    def name(self) -> Text:
+        return 'Ames'

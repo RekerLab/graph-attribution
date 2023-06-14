@@ -28,6 +28,8 @@ import tensorflow as tf
 from graph_attribution import attribution_metrics as att_metrics
 from graph_attribution import graphs as graph_utils
 from graph_attribution import templates
+from mgktools.evaluators.metric import eval_metric_func
+
 
 try:
     from rdkit import Chem
@@ -130,6 +132,76 @@ class RegresionTaskType(AttributionTaskType):
             att_metrics.nodewise_kendall_tau_score(true_att, pred_att))
         stats['ATT r'] = reducer_fn(
             att_metrics.nodewise_pearson_r_score(true_att, pred_att))
+        return stats
+
+
+class LiverTaskType(AttributionTaskType):
+    def __init__(self, use_magnitude: bool = False):
+        self.n_outputs = 1
+        self.use_magnitude = use_magnitude
+
+    def get_nn_activation_fn(self) -> templates.Activation:
+        """Activation useful for NN model building."""
+        return tf.identity
+
+    def get_nn_loss_fn(self) -> templates.LossFunction:
+        """Loss function useful for NN model training."""
+
+        def loss_fn(y_true, y_pred):
+            return tf.reduce_mean(tf.losses.mean_squared_error(y_true, y_pred))
+
+        return loss_fn
+
+    def evaluate_predictions(self, y_true: np.ndarray,
+                             y_pred: np.ndarray) -> MutableMapping[Text, Any]:
+        """Scores predictions and return a dict of (metric_name, value)."""
+        values = [('R2', sklearn.metrics.r2_score(y_true, y_pred)),
+                  ('RMSE', att_metrics.rmse(y_true, y_pred)),
+                  ('tau', att_metrics.kendall_tau_score(y_true, y_pred)),
+                  ('ACC',  eval_metric_func(y_true.ravel().tolist(), y_pred.ravel().tolist(), metric='accuracy'))]
+        return collections.OrderedDict(values)
+
+    def preprocess_attributions(self,
+                                many_att: List[GraphsTuple],
+                                positive: bool = False,
+                                normalize: bool = False) -> List[GraphsTuple]:
+        """Prepare attributions for visualization or evaluation."""
+        new_att = []
+        for att in many_att:
+            # If the attribution is 2D, then we pick the last truth.
+            if att.nodes.ndim > 1:
+                att = att.replace(nodes=att.nodes[:, -1])
+            if self.use_magnitude:
+                att = att.replace(nodes=np.abs(att.nodes))
+                if att.edges is not None:
+                    att = att.replace(edges=np.abs(att.edges))
+
+            att = graph_utils.cast_to_np(graph_utils.reduce_sum_edges(att))
+            new_att.append(att)
+
+        if normalize:
+            new_att = normalize_attributions(new_att, positive)
+
+        return new_att
+
+    def evaluate_attributions(
+        self,
+        att_true: List[GraphsTuple],
+        att_pred: List[GraphsTuple],
+        reducer_fn: Optional[Callable[[np.ndarray], Any]] = None
+    ) -> MutableMapping[Text, Any]:
+        reducer_fn = reducer_fn or np.nanmean
+        att_probs = self.preprocess_attributions(att_pred, normalize=True)
+        att_true_last = self.preprocess_attributions(att_true)
+        att_binary = att_metrics.get_opt_binary_attributions(
+            att_true_last, att_probs)
+        stats = collections.OrderedDict()
+        stats['ATT AUROC'] = reducer_fn(
+            att_metrics.attribution_auroc(att_true, att_probs))
+        stats['ATT F1'] = reducer_fn(
+            att_metrics.attribution_f1(att_true, att_binary))
+        stats['ATT ACC'] = reducer_fn(
+            att_metrics.attribution_accuracy(att_true, att_binary))
         return stats
 
 
@@ -303,6 +375,8 @@ else:
     logic8_dataset = DummyDataset('logic8')
     logic10_dataset = DummyDataset('logic10')
     crippen_dataset = DummyDataset('crippen')
+liver_dataset = DummyDataset('liver')
+ames_dataset = DummyDataset('ames')
 
 
 class Task(enum.Enum):
@@ -315,18 +389,23 @@ class Task(enum.Enum):
     bashapes = 'bashapes'
     treegrid = 'treegrid'
     bacommunity = 'bacommunity'
+    liver = 'liver'
+    ames = 'ames'
 
 
 NODE_TASKS = [Task.bashapes]
 GLOBALS_TASKS = [
-    Task.crippen, Task.benzene, Task.logic7, Task.logic8, Task.logic10
+    Task.crippen, Task.benzene, Task.logic7, Task.logic8, Task.logic10, Task.liver, Task.ames
 ]
 MOL_TASKS = [
     Task.crippen,
     Task.benzene,
     Task.logic7,
     Task.logic8,
-    Task.logic10]
+    Task.logic10,
+    Task.liver,
+    Task.ames
+]
 
 
 def get_task(task: Union[Task, Text]) -> templates.AttributionTask:
@@ -347,6 +426,12 @@ def get_task(task: Union[Task, Text]) -> templates.AttributionTask:
                             TargetType.globals),
         Task.logic10:
             AttributionTask(logic10_dataset, BinaryClassificationTaskType(),
+                            TargetType.globals),
+        Task.liver:
+            AttributionTask(liver_dataset, BinaryClassificationTaskType(),
+                            TargetType.globals),
+        Task.ames:
+            AttributionTask(ames_dataset, BinaryClassificationTaskType(),
                             TargetType.globals),
         Task.bashapes:
             AttributionTask(
