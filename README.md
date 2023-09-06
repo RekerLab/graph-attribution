@@ -4,6 +4,9 @@ We added two real-world datasets ames and liver from [Rao et al.](https://doi.or
 We implemented Gaussian process regression-Marginalized graph kernel (GPR-MGK) for interpretable molecular property prediction. 
 [codes and results](https://github.com/RekerLab/graph-attribution/tree/main/notebooks/mgk-project).
 
+## Citation
+[Interpretable Molecular Property Predictions Using Marginalized Graph Kernels](https://doi.org/10.1021/acs.jcim.3c00396).
+
 original README file:
 # Codebase for [_Evaluating Attribution for Graph Neural Networks_](https://papers.nips.cc/paper/2020/hash/417fbbf2e9d5a28a855a11894b2e795a-Abstract.html).
 
