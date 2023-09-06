@@ -7,7 +7,8 @@ We implemented Gaussian process regression-Marginalized graph kernel (GPR-MGK) f
 ## Citation
 [Interpretable Molecular Property Predictions Using Marginalized Graph Kernels](https://doi.org/10.1021/acs.jcim.3c00396).
 
-original README file:
+
+# original README file:
 # Codebase for [_Evaluating Attribution for Graph Neural Networks_](https://papers.nips.cc/paper/2020/hash/417fbbf2e9d5a28a855a11894b2e795a-Abstract.html).
 
 ![Schematic figure](media/TOC.png)
